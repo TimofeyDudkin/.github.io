@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Визуализация анастомозов прямой кишки</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f7f7f7;
+      border-radius: 8px;
+    }
+    .vessel-control {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+    .slider-value {
+      width: 40px;
+      text-align: right;
+    }
+    svg {
+      width: 100%;
+      height: 500px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+    .vessel {
+      transition: all 0.3s ease;
+    }
+    .vessel-label {
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .legend {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 14px;
+    }
+    .legend-color {
+      width: 20px;
+      height: 10px;
+      border-radius: 2px;
+    }
+    button {
+      padding: 8px 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .info-panel {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #e8f4f8;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .flow-particle {
+      r: 2;
+      fill: #bc0000;
+    }
+    .vessel-gradient {
+      fill: none;
+    }
+    /* Новый стиль для более реалистичной кишки */
+    .rectum {
+      fill: #f8d9c8;
+      stroke: #e0b0a0;
+      stroke-width: 2;
+      filter: drop-shadow(0 0 2px rgba(0,0,0,0.2));
+    }
+    .mucosa {
+      fill: #ffcbbd;
+      opacity: 0.8;
+    }
+    .lumen {
+      fill: #eb9b85;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Визуализация анастомозов прямой кишки</h1>
+    
+    <div class="controls">
+      <div class="vessel-control">
+        <h3>Верхняя прямокишечная вена</h3>
+        <div class="slider-container">
+          <input type="range" id="superior-flow" min="0" max="100" value="100" />
+          <span class="slider-value" id="superior-flow-value">100%</span>
+          <button onclick="toggleVessel('superior')">Перекрыть</button>
+        </div>
+      </div>
+      
+      <div class="vessel-control">
+        <h3>Средняя прямокишечная вена</h3>
+        <div class="slider-container">
+          <input type="range" id="middle-flow" min="0" max="100" value="100" />
+          <span class="slider-value" id="middle-flow-value">100%</span>
+          <button onclick="toggleVessel('middle')">Перекрыть</button>
+        </div>
+      </div>
+      
+      <div class="vessel-control">
+        <h3>Нижняя прямокишечная вена</h3>
+        <div class="slider-container">
+          <input type="range" id="inferior-flow" min="0" max="100" value="100" />
+          <span class="slider-value" id="inferior-flow-value">100%</span>
+          <button onclick="toggleVessel('inferior')">Перекрыть</button>
+        </div>
+      </div>
+      
+      <div class="vessel-control">
+        <h3>Анастомозы</h3>
+        <div class="slider-container">
+          <input type="range" id="anastomoses-flow" min="0" max="100" value="50" />
+          <span class="slider-value" id="anastomoses-flow-value">50%</span>
+          <button onclick="toggleAnastomoses()">Перекрыть</button>
+        </div>
+      </div>
+    </div>
+    
+    <button onclick="resetAll()">Сбросить все настройки</button>
+    
+    <div id="visualization">
+      <svg id="vessel-svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+        <!-- Определения градиентов -->
+        <defs>
+          <linearGradient id="superiorGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#305fa8" />
+            <stop offset="100%" stop-color="#3e7ac4" />
+          </linearGradient>
+          <linearGradient id="middleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#3366cc" />
+            <stop offset="100%" stop-color="#4477dd" />
+          </linearGradient>
+          <linearGradient id="inferiorGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#3366cc" />
+            <stop offset="100%" stop-color="#4477dd" />
+          </linearGradient>
+          <linearGradient id="anastomosisGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8e2eb7" />
+            <stop offset="100%" stop-color="#9933cc" />
+          </linearGradient>
+          <!-- Новый градиент для кишки -->
+          <radialGradient id="rectumGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <stop offset="0%" stop-color="#ffebe3" />
+            <stop offset="60%" stop-color="#f8d9c8" />
+            <stop offset="100%" stop-color="#e6b5a5" />
+          </radialGradient>
+          
+          <!-- Пульсирующий градиент для выделения венозной перегрузки -->
+          <radialGradient id="pulseGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <stop offset="0%" stop-color="#ff3333" />
+            <stop offset="100%" stop-color="#cc0000" />
+            <animate attributeName="r" values="40%;60%;40%" dur="2s" repeatCount="indefinite" />
+          </radialGradient>
+        </defs>
+        
+        <!-- Улучшенная прямая кишка с более сложной формой и текстурой -->
+        <g id="rectum-shape">
+          <!-- Основная форма кишки -->
+          <path class="rectum" d="M400,50 
+                 C450,70 470,120 480,180 
+                 C490,240 485,280 485,330 
+                 C485,380 475,420 460,470 
+                 C445,520 425,550 400,550
+                 C375,550 355,520 340,470
+                 C325,420 315,380 315,330
+                 C315,280 310,240 320,180
+                 C330,120 350,70 400,50" 
+                 fill="url(#rectumGradient)" />
+          
+          <!-- Внутренняя текстура - складки слизистой -->
+          <path class="mucosa" d="M400,80 
+                 C430,100 445,140 450,190 
+                 C455,240 453,290 450,340 
+                 C447,390 437,430 425,470 
+                 C413,510 400,530 400,530
+                 C400,530 387,510 375,470
+                 C363,430 353,390 350,340
+                 C347,290 345,240 350,190
+                 C355,140 370,100 400,80" />
+                 
+          <!-- Просвет кишки -->
+          <ellipse class="lumen" cx="400" cy="300" rx="25" ry="160" />
+        </g>
+        
+        <!-- Верхняя прямокишечная вена (извилистая) -->
+        <path id="superior-vessel" class="vessel" 
+              d="M400,80 C420,100 425,120 430,150 C435,170 430,190 400,210" 
+              stroke="url(#superiorGradient)" stroke-width="12" fill="none" stroke-linecap="round" />
+        <text x="450" y="130" class="vessel-label">Верхняя прямокишечная вена</text>
+        <line x1="430" y1="130" x2="425" y2="130" stroke="#333" stroke-width="1" />
+        
+        <!-- Средняя прямокишечная вена (извилистая) -->
+        <path id="middle-vessel" class="vessel" 
+              d="M315,300 C295,295 275,305 255,300 C235,295 215,305 190,300" 
+              stroke="url(#middleGradient)" stroke-width="10" fill="none" stroke-linecap="round" />
+        <text x="150" y="290" class="vessel-label">Средняя прямокишечная вена</text>
+        <line x1="240" y1="290" x2="255" y2="298" stroke="#333" stroke-width="1" />
+        
+        <!-- Нижняя прямокишечная вена (извилистая) -->
+        <path id="inferior-vessel" class="vessel" 
+              d="M320,450 C300,445 280,455 260,450 C240,445 220,455 190,450" 
+              stroke="url(#inferiorGradient)" stroke-width="8" fill="none" stroke-linecap="round" />
+        <text x="150" y="440" class="vessel-label">Нижняя прямокишечная вена</text>
+        <line x1="240" y1="440" x2="255" y2="448" stroke="#333" stroke-width="1" />
+        
+        <!-- Анастомозы (более реалистичные) -->
+        <path id="anastomosis1" class="vessel anastomosis" 
+              d="M400,210 C380,230 355,245 345,260 C335,280 325,290 315,300" 
+              stroke="url(#anastomosisGradient)" stroke-width="5" fill="none" stroke-linecap="round" />
+        
+        <path id="anastomosis2" class="vessel anastomosis" 
+              d="M315,300 C330,340 335,370 340,390 C350,415 340,430 320,450" 
+              stroke="url(#anastomosisGradient)" stroke-width="5" fill="none" stroke-linecap="round" />
+        
+        <path id="anastomosis3" class="vessel anastomosis" 
+              d="M400,210 C420,250 425,300 420,350 C415,400 380,420 320,450" 
+              stroke="url(#anastomosisGradient)" stroke-width="4" fill="none" stroke-opacity="0.7" stroke-linecap="round" />
+        
+        <text x="480" y="330" class="vessel-label">Анастомозы</text>
+        <line x1="460" y1="330" x2="420" y2="330" stroke="#333" stroke-width="1" />
+        
+        <!-- Новый элемент для визуализации венозной перегрузки -->
+        <g id="congestion-markers">
+          <!-- Маркеры будут добавляться динамически -->
+        </g>
+        
+        <!-- Группы для кровотока -->
+        <g id="superior-flow-group"></g>
+        <g id="middle-flow-group"></g>
+        <g id="inferior-flow-group"></g>
+        <g id="anastomosis1-flow-group"></g>
+        <g id="anastomosis2-flow-group"></g>
+        <g id="anastomosis3-flow-group"></g>
+      </svg>
+    </div>
+    
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #3366cc;"></div>
+        <span>Основные вены</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #9933cc;"></div>
+        <span>Анастомозы</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #bc0000;"></div>
+        <span>Кровоток</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #ff3333;"></div>
+        <span>Венозная перегрузка</span>
+      </div>
+    </div>
+    
+    <div class="info-panel">
+      <h3>Информация об анастомозах прямой кишки</h3>
+      <p>Анастомозы между венами прямой кишки представляют собой важные соединения в венозной системе прямой кишки. Они обеспечивают альтернативные пути для кровотока при нарушении проходимости основных сосудов.</p>
+      <p>В данной модели показаны три основные вены:</p>
+      <ul>
+        <li><strong>Верхняя прямокишечная вена</strong> - дренирует верхнюю часть прямой кишки в воротную вену через нижнюю брыжеечную вену</li>
+        <li><strong>Средняя прямокишечная вена</strong> - дренирует среднюю часть прямой кишки во внутреннюю подвздошную вену</li>
+        <li><strong>Нижняя прямокишечная вена</strong> - дренирует нижнюю часть прямой кишки во внутреннюю половую вену и далее во внутреннюю подвздошную вену</li>
+      </ul>
+      <p>Анастомозы между этими венами играют важную роль в патогенезе геморроя и других сосудистых патологий прямой кишки. Они образуют часть портокавального анастомоза, соединяя системы воротной и полой вен.</p>
+    </div>
+  </div>
+
+  <script>
+    const superiorSlider = document.getElementById('superior-flow');
+    const superiorValue = document.getElementById('superior-flow-value');
+    const middleSlider = document.getElementById('middle-flow');
+    const middleValue = document.getElementById('middle-flow-value');
+    const inferiorSlider = document.getElementById('inferior-flow');
+    const inferiorValue = document.getElementById('inferior-flow-value');
+    const anastomosesSlider = document.getElementById('anastomoses-flow');
+    const anastomosesValue = document.getElementById('anastomoses-flow-value');
+    
+    const superiorVessel = document.getElementById('superior-vessel');
+    const middleVessel = document.getElementById('middle-vessel');
+    const inferiorVessel = document.getElementById('inferior-vessel');
+    const anastomosis1 = document.getElementById('anastomosis1');
+    const anastomosis2 = document.getElementById('anastomosis2');
+    const anastomosis3 = document.getElementById('anastomosis3');
+
+    const superiorFlowGroup = document.getElementById('superior-flow-group');
+    const middleFlowGroup = document.getElementById('middle-flow-group');
+    const inferiorFlowGroup = document.getElementById('inferior-flow-group');
+    const anastomosis1FlowGroup = document.getElementById('anastomosis1-flow-group');
+    const anastomosis2FlowGroup = document.getElementById('anastomosis2-flow-group');
+    const anastomosis3FlowGroup = document.getElementById('anastomosis3-flow-group');
+    
+    const congestionMarkers = document.getElementById('congestion-markers');
+    
+    // Пути для анимации
+    const superiorPath = "M400,80 C420,100 425,120 430,150 C435,170 430,190 400,210";
+    const middlePath = "M315,300 C295,295 275,305 255,300 C235,295 215,305 190,300";
+    const inferiorPath = "M320,450 C300,445 280,455 260,450 C240,445 220,455 190,450";
+    const anastomosis1Path = "M400,210 C380,230 355,245 345,260 C335,280 325,290 315,300";
+    const anastomosis2Path = "M315,300 C330,340 335,370 340,390 C350,415 340,430 320,450";
+    const anastomosis3Path = "M400,210 C420,250 425,300 420,350 C415,400 380,420 320,450";
+    
+    // Создаем частицы крови с разными свойствами для каждого сосуда
+    createBloodParticles(superiorFlowGroup, superiorPath, 10, 3.5, 0.8, 100);
+    createBloodParticles(middleFlowGroup, middlePath, 8, 3, 0.8, 100);
+    createBloodParticles(inferiorFlowGroup, inferiorPath, 7, 2.5, 0.8, 100);
+    createBloodParticles(anastomosis1FlowGroup, anastomosis1Path, 5, 2, 0.7, 50);
+    createBloodParticles(anastomosis2FlowGroup, anastomosis2Path, 5, 2, 0.7, 50);
+    createBloodParticles(anastomosis3FlowGroup, anastomosis3Path, 4, 1.5, 0.7, 50);
+    
+    // Функция для создания частиц крови с различными размерами и скоростями
+    function createBloodParticles(group, path, count, maxSize, opacity, flowPercent) {
+      group.innerHTML = ''; // Очищаем предыдущие частицы
+      
+      for (let i = 0; i < count; i++) {
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        const size = Math.max(1, Math.random() * maxSize);
+        
+        circle.classList.add('flow-particle');
+        circle.setAttribute('r', size);
+        circle.setAttribute('opacity', Math.max(0.5, Math.random() * opacity));
+        
+        const animate = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+        // Разные скорости для разных частиц
+        const baseSpeed = (Math.random() * 2 + 3);
+        // Замедляем поток при низких значениях потока
+        const speedModifier = 100 / Math.max(10, flowPercent); // Предотвращаем деление на очень маленькие числа
+        animate.setAttribute('dur', `${baseSpeed * speedModifier}s`);
+        animate.setAttribute('repeatCount', 'indefinite');
+        animate.setAttribute('path', path);
+        
+        // Случайное начальное положение
+        animate.setAttribute('keyPoints', `${Math.random()};1`);
+        animate.setAttribute('keyTimes', "0;1");
+        animate.setAttribute('calcMode', 'linear');
+        
+        circle.appendChild(animate);
+        group.appendChild(circle);
+      }
+    }
+    
+    // Обработчики для слайдеров
+    superiorSlider.addEventListener('input', function() {
+      const value = this.value;
+      superiorValue.textContent = `${value}%`;
+      updateVesselFlow('superior', value);
+    });
+    
+    middleSlider.addEventListener('input', function() {
+      const value = this.value;
+      middleValue.textContent = `${value}%`;
+      updateVesselFlow('middle', value);
+    });
+    
+    inferiorSlider.addEventListener('input', function() {
+      const value = this.value;
+      inferiorValue.textContent = `${value}%`;
+      updateVesselFlow('inferior', value);
+    });
+    
+    anastomosesSlider.addEventListener('input', function() {
+      const value = this.value;
+      anastomosesValue.textContent = `${value}%`;
+      updateVesselFlow('anastomoses', value);
+    });
+    
+    // Функция обновления кровотока с перенаправлением через анастомозы
+    function updateVesselFlow(vessel, value) {
+      const opacity = value / 100;
+      
+      switch(vessel) {
+        case 'superior':
+          // Обновление видимости сосуда
+          superiorVessel.style.opacity = opacity;
+          
+          // ПОЛНОСТЬЮ останавливаем частицы при низком значении потока
+          if (value < 10) {
+            stopFlowCompletelyInVessel(superiorFlowGroup);
+          } else {
+            // Если сосуд не перекрыт, обновляем поток
+            updateFlowParticles(superiorFlowGroup, value);
+          }
+          
+          // Перенаправление потока через анастомозы при блокировке
+          if (value < 30 && parseInt(anastomosesSlider.value) > 10) {
+            // Активируем компенсаторный механизм для анастомозов
+            const anastValue = parseInt(anastomosesSlider.value);
+            const compensationFactor = (100 - value) / 100 * anastValue;
+            
+            // Увеличиваем поток через соответствующие анастомозы
+            // Увеличиваем толщину и скорость потока в соответствующих анастомозах
+            updateFlowParticles(anastomosis1FlowGroup, Math.min(100, compensationFactor * 1.5));
+            anastomosis1.style.strokeWidth = 5 + (compensationFactor * 0.03);
+            
+            updateFlowParticles(anastomosis3FlowGroup, Math.min(100, compensationFactor * 1.5));
+            anastomosis3.style.strokeWidth = 4 + (compensationFactor * 0.03);
+            
+            // Меняем цвет анастомозов для визуального эффекта перегрузки
+            if (value < 10) {
+              anastomosis1.style.stroke = "url(#superiorGradient)";
+              anastomosis3.style.stroke = "url(#superiorGradient)";
+              // Добавляем маркеры венозной перегрузки
+              showCongestionEffect([
+                {x: 360, y: 250, size: 10},
+                {x: 410, y: 300, size: 8}
+              ]);
+            } else {
+              anastomosis1.style.stroke = "url(#anastomosisGradient)";
+              anastomosis3.style.stroke = "url(#anastomosisGradient)";
+              // Убираем маркеры перегрузки
+              congestionMarkers.innerHTML = '';
+            }
+          } else {
+            // Восстанавливаем нормальный вид анастомозов при нормальном токе
+            anastomosis1.style.strokeWidth = 5;
+            anastomosis3.style.strokeWidth = 4;
+            anastomosis1.style.stroke = "url(#anastomosisGradient)";
+            anastomosis3.style.stroke = "url(#anastomosisGradient)";
+            congestionMarkers.innerHTML = '';
+          }
+          break;
+          
+        case 'middle':
+          middleVessel.style.opacity = opacity;
+          
+          // Полностью останавливаем частицы при низком значении потока
+          if (value < 10) {
+            stopFlowCompletelyInVessel(middleFlowGroup);
+          } else {
+            updateFlowParticles(middleFlowGroup, value);
+          }
+          
+          // Перенаправление кровотока через анастомозы
+          if (value < 30 && parseInt(anastomosesSlider.value) > 10) {
+            const anastValue = parseInt(anastomosesSlider.value);
+            const compensationFactor = (100 - value) / 100 * anastValue;
+            
+            // Увеличиваем поток через анастомоз 1 и 2
+            updateFlowParticles(anastomosis1FlowGroup, Math.min(100, compensationFactor * 1.3));
+            anastomosis1.style.strokeWidth = 5 + (compensationFactor * 0.02);
+            
+            updateFlowParticles(anastomosis2FlowGroup, Math.min(100, compensationFactor * 1.3));
+            anastomosis2.style.strokeWidth = 5 + (compensationFactor * 0.02);
+            
+            if (value < 10) {
+              anastomosis1.style.stroke = "url(#middleGradient)";
+              anastomosis2.style.stroke = "url(#middleGradient)";
+              // Добавляем маркеры венозной перегрузки
+              showCongestionEffect([
+                {x: 345, y: 270, size: 8},
+                {x: 330, y: 370, size: 9}
+              ]);
+            } else {
+              anastomosis1.style.stroke = "url(#anastomosisGradient)";
+              anastomosis2.style.stroke = "url(#anastomosisGradient)";
+              congestionMarkers.innerHTML = '';
+            }
+          } else {
+            anastomosis1.style.strokeWidth = 5;
+            anastomosis2.style.strokeWidth = 5;
+            anastomosis1.style.stroke = "url(#anastomosisGradient)";
+            anastomosis2.style.stroke = "url(#anastomosisGradient)";
+            congestionMarkers.innerHTML = '';
+          }
+          break;
+          
+        case 'inferior':
+          inferiorVessel.style.opacity = opacity;
+          
+          if (value < 10) {
+            stopFlowCompletelyInVessel(inferiorFlowGroup);
+          } else {
+            updateFlowParticles(inferiorFlowGroup, value);
+          }
+          
+          if (value < 30 && parseInt(anastomosesSlider.value) > 10) {
+            const anastValue = parseInt(anastomosesSlider.value);
+            const compensationFactor = (100 - value) / 100 * anastValue;
+            
+            // Увеличиваем поток через анастомоз 2 и 3
+            updateFlowParticles(anastomosis2FlowGroup, Math.min(100, compensationFactor * 1.4));
+            anastomosis2.style.strokeWidth = 5 + (compensationFactor * 0.03);
+            
+            updateFlowParticles(anastomosis3FlowGroup, Math.min(100, compensationFactor * 1.4));
+            anastomosis3.style.strokeWidth = 4 + (compensationFactor * 0.03);
+            
+            if (value < 10) {
+              anastomosis2.style.stroke = "url(#inferiorGradient)";
+              anastomosis3.style.stroke = "url(#inferiorGradient)";
+              // Добавляем маркеры венозной перегрузки
+              showCongestionEffect([
+                {x: 350, y: 420, size: 10},
+                {x: 380, y: 380, size: 8}
+              ]);
+            } else {
+              anastomosis2.style.stroke = "url(#anastomosisGradient)";
+              anastomosis3.style.stroke = "url(#anastomosisGradient)";
+              congestionMarkers.innerHTML = '';
+            }
+          } else {
+            anastomosis2.style.strokeWidth = 5;
+            anastomosis3.style.strokeWidth = 4;
+            anastomosis2.style.stroke = "url(#anastomosisGradient)";
+            anastomosis3.style.stroke = "url(#anastomosisGradient)";
+            congestionMarkers.innerHTML = '';
+          }
+          break;
+          
+        case 'anastomoses':
+          const anastValue = value;
+          
+          // Обновляем прозрачность и толщину всех анастомозов
+anastomosis3.style.opacity = opacity;
+
+// Обновляем поток в анастомозах
+if (value < 10) {
+  stopFlowCompletelyInVessel(anastomosis1FlowGroup);
+  stopFlowCompletelyInVessel(anastomosis2FlowGroup);
+  stopFlowCompletelyInVessel(anastomosis3FlowGroup);
+} else {
+  updateFlowParticles(anastomosis1FlowGroup, value);
+  updateFlowParticles(anastomosis2FlowGroup, value);
+  updateFlowParticles(anastomosis3FlowGroup, value);
+}
+
+// Проверяем, не заблокирован ли какой-либо основной сосуд
+const superiorValue = parseInt(superiorSlider.value);
+const middleValue = parseInt(middleSlider.value);
+const inferiorValue = parseInt(inferiorSlider.value);
+
+// Если основной сосуд заблокирован и анастомозы активны, перенаправляем поток
+if ((superiorValue < 30 || middleValue < 30 || inferiorValue < 30) && value > 10) {
+  // Логика перенаправления уже реализована в других обработчиках
+} else {
+  // Возвращаем анастомозы к нормальному состоянию
+  anastomosis1.style.strokeWidth = 5;
+  anastomosis2.style.strokeWidth = 5;
+  anastomosis3.style.strokeWidth = 4;
+  anastomosis1.style.stroke = "url(#anastomosisGradient)";
+  anastomosis2.style.stroke = "url(#anastomosisGradient)";
+  anastomosis3.style.stroke = "url(#anastomosisGradient)";
+  congestionMarkers.innerHTML = '';
+}
+break;
+}
+
+// Проверяем общее состояние кровотока и обновляем венозную перегрузку если необходимо
+checkOverallBloodFlow();
+}
+
+// Функция для полной остановки потока в сосуде
+function stopFlowCompletelyInVessel(group) {
+  const particles = group.querySelectorAll('.flow-particle');
+  particles.forEach(particle => {
+    const animate = particle.querySelector('animateMotion');
+    if (animate) {
+      animate.setAttribute('dur', '9999s'); // Фактически останавливаем движение
+      particle.setAttribute('opacity', '0.1'); // Делаем частицы почти невидимыми
+    }
+  });
+}
+
+// Функция для обновления частиц кровотока
+function updateFlowParticles(group, value) {
+  const particles = group.querySelectorAll('.flow-particle');
+  const speedModifier = 100 / Math.max(10, value); // Замедление при низком потоке
+  
+  particles.forEach(particle => {
+    const animate = particle.querySelector('animateMotion');
+    if (animate) {
+      const baseSpeed = parseFloat(animate.getAttribute('dur').replace('s', '')) / speedModifier * 0.5;
+      animate.setAttribute('dur', `${baseSpeed * speedModifier}s`);
+      particle.setAttribute('opacity', Math.max(0.1, value / 100 * 0.8));
+    }
+  });
+}
+
+// Функция для отображения эффекта венозной перегрузки
+function showCongestionEffect(positions) {
+  congestionMarkers.innerHTML = '';
+  
+  positions.forEach(pos => {
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute('cx', pos.x);
+    circle.setAttribute('cy', pos.y);
+    circle.setAttribute('r', pos.size);
+    circle.setAttribute('fill', 'url(#pulseGradient)');
+    circle.setAttribute('opacity', '0.7');
+    
+    // Добавляем пульсацию
+    const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+    animate.setAttribute('attributeName', 'r');
+    animate.setAttribute('values', `${pos.size};${pos.size * 1.5};${pos.size}`);
+    animate.setAttribute('dur', '2s');
+    animate.setAttribute('repeatCount', 'indefinite');
+    
+    circle.appendChild(animate);
+    congestionMarkers.appendChild(circle);
+  });
+}
+
+// Функция для проверки общего состояния кровотока
+function checkOverallBloodFlow() {
+  const superiorValue = parseInt(superiorSlider.value);
+  const middleValue = parseInt(middleSlider.value);
+  const inferiorValue = parseInt(inferiorSlider.value);
+  const anastValue = parseInt(anastomosesSlider.value);
+  
+  // Если все основные сосуды заблокированы и анастомозы слабые
+  if (superiorValue < 20 && middleValue < 20 && inferiorValue < 20 && anastValue < 30) {
+    // Показываем серьезную венозную перегрузку
+    showCongestionEffect([
+      {x: 360, y: 250, size: 12},
+      {x: 330, y: 330, size: 15},
+      {x: 380, y: 380, size: 14},
+      {x: 400, y: 300, size: 20}
+    ]);
+  }
+}
+
+// Функция для переключения сосуда (полное перекрытие/открытие)
+function toggleVessel(vessel) {
+  switch(vessel) {
+    case 'superior':
+      if (parseInt(superiorSlider.value) > 0) {
+        superiorSlider.value = 0;
+      } else {
+        superiorSlider.value = 100;
+      }
+      superiorValue.textContent = `${superiorSlider.value}%`;
+      updateVesselFlow('superior', superiorSlider.value);
+      break;
+    case 'middle':
+      if (parseInt(middleSlider.value) > 0) {
+        middleSlider.value = 0;
+      } else {
+        middleSlider.value = 100;
+      }
+      middleValue.textContent = `${middleSlider.value}%`;
+      updateVesselFlow('middle', middleSlider.value);
+      break;
+    case 'inferior':
+      if (parseInt(inferiorSlider.value) > 0) {
+        inferiorSlider.value = 0;
+      } else {
+        inferiorSlider.value = 100;
+      }
+      inferiorValue.textContent = `${inferiorSlider.value}%`;
+      updateVesselFlow('inferior', inferiorSlider.value);
+      break;
+  }
+}
+
+// Функция для переключения анастомозов
+function toggleAnastomoses() {
+  if (parseInt(anastomosesSlider.value) > 0) {
+    anastomosesSlider.value = 0;
+  } else {
+    anastomosesSlider.value = 50;
+  }
+  anastomosesValue.textContent = `${anastomosesSlider.value}%`;
+  updateVesselFlow('anastomoses', anastomosesSlider.value);
+}
+
+// Функция для сброса всех настроек
+function resetAll() {
+  superiorSlider.value = 100;
+  middleSlider.value = 100;
+  inferiorSlider.value = 100;
+  anastomosesSlider.value = 50;
+  
+  superiorValue.textContent = "100%";
+  middleValue.textContent = "100%";
+  inferiorValue.textContent = "100%";
+  anastomosesValue.textContent = "50%";
+  
+  superiorVessel.style.opacity = 1;
+  middleVessel.style.opacity = 1;
+  inferiorVessel.style.opacity = 1;
+  anastomosis1.style.opacity = 0.5;
+  anastomosis2.style.opacity = 0.5;
+  anastomosis3.style.opacity = 0.5;
+  
+  // Возвращаем нормальную толщину и цвет всем сосудам
+  anastomosis1.style.strokeWidth = 5;
+  anastomosis2.style.strokeWidth = 5;
+  anastomosis3.style.strokeWidth = 4;
+  anastomosis1.style.stroke = "url(#anastomosisGradient)";
+  anastomosis2.style.stroke = "url(#anastomosisGradient)";
+  anastomosis3.style.stroke = "url(#anastomosisGradient)";
+  
+  // Очищаем маркеры перегрузки
+  congestionMarkers.innerHTML = '';
+  
+  // Обновляем кровоток во всех сосудах
+  updateVesselFlow('superior', 100);
+  updateVesselFlow('middle', 100);
+  updateVesselFlow('inferior', 100);
+  updateVesselFlow('anastomoses', 50);
+}
+
+// Инициализация при загрузке страницы
+window.onload = function() {
+  // Запускаем симуляцию с начальными значениями
+  updateVesselFlow('superior', 100);
+  updateVesselFlow('middle', 100);
+  updateVesselFlow('inferior', 100);
+  updateVesselFlow('anastomoses', 50);
+};
+  </script>
+</body>
+</html>
